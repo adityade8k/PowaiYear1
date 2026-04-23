@@ -1,0 +1,486 @@
+/* style.css */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "DM Mono", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+    overflow-x: hidden;
+    height: 200vh; /* Fallback; JS sets this from the section count */
+}
+
+body.is-scroll-locked,
+body.is-modal-open {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+#threejs-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+}
+
+#overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+}
+
+#header-container {
+    position: absolute;
+    inset: 0;
+    text-align: center;
+    opacity: 1;
+    will-change: transform, opacity;
+}
+
+#header {
+    position: absolute;
+    font-family: "cofo-sans-mono-variable", sans-serif;
+    font-variation-settings: "wght" 800;
+    opacity: 0;
+    transition-property: opacity;
+    transition-timing-function: ease;
+    text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.5);
+    letter-spacing: 10px;
+}
+
+#sub-header {
+    position: absolute;
+    margin-top: 1rem;
+    opacity: 0;
+    transition-property: opacity;
+    transition-timing-function: ease;
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+    font-weight: 400;
+}
+
+#header.is-visible,
+#sub-header.is-visible {
+    opacity: 1;
+}
+
+#scroll-indicator {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: auto;
+    cursor: pointer;
+    will-change: opacity;
+}
+
+#scroll-indicator.is-visible {
+    opacity: 1;
+}
+
+#scroll-indicator.is-hidden {
+    opacity: 0;
+}
+
+#scroll-indicator:focus-visible {
+    outline: 2px solid #000000;
+    outline-offset: 6px;
+}
+
+#scroll-label {
+    font-weight: 400;
+}
+
+#scroll-arrow {
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    animation: scroll-indicator-bounce 1.4s ease-in-out infinite;
+}
+
+@keyframes scroll-indicator-bounce {
+    0%,
+    100% {
+        transform: rotate(45deg) translate(0, 0);
+    }
+
+    50% {
+        transform: rotate(45deg) translate(4px, 4px);
+    }
+}
+
+#button-container {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    z-index: 3;
+    opacity: 0;
+    will-change: transform, opacity;
+    pointer-events: auto;
+}
+
+button {
+    font-family: inherit;
+    font-weight: 400;
+    font-style: normal;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #000000;
+    border-radius: 999px;
+    background-color: transparent;
+    color: #000000;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+button:hover {
+    border-color: #000000;
+    background-color: #000000;
+    color: #ffffff;
+}
+
+#instructions {
+    position: absolute;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+}
+
+#auth-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+#auth-modal-backdrop.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#auth-modal {
+    position: relative;
+    z-index: 1;
+    width: min(420px, calc(100vw - 32px));
+    padding: 28px 24px 24px;
+    border: 1px solid #000000;
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.14);
+    pointer-events: auto;
+}
+
+#auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+#auth-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #000000;
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+#auth-modal-close:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: #000000;
+}
+
+.auth-text-button {
+    width: fit-content;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: #000000;
+    font-size: 0.8rem;
+    text-decoration: underline;
+    text-underline-offset: 0.18rem;
+}
+
+.auth-text-button:hover {
+    background: transparent;
+    color: #000000;
+}
+
+.auth-mode-hint {
+    display: block;
+    align-self: flex-start;
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    text-align: left;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.auth-mode-hint:focus-visible {
+    outline: 2px solid #000000;
+    outline-offset: 2px;
+}
+
+.auth-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.auth-field label {
+    font-size: 0.82rem;
+    letter-spacing: 0.04rem;
+}
+
+.auth-field input {
+    width: 100%;
+    padding: 14px 18px;
+    border: 1px solid #000000;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #000000;
+    font: inherit;
+}
+
+.auth-field input:focus-visible {
+    outline: 2px solid #000000;
+    outline-offset: 2px;
+}
+
+#auth-status {
+    min-height: 1.25rem;
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+#auth-status[data-state="error"] {
+    color: #a10f0f;
+}
+
+#auth-status[data-state="success"] {
+    color: #116333;
+}
+
+#auth-helper-copy {
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
+
+#auth-submit-btn {
+    width: 100%;
+    padding: 14px 20px;
+}
+
+/* ─── Memory proximity popup (top-left) ─────────────────────────────────── */
+#memory-popup {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 5;
+    max-width: 280px;
+    padding: 14px 18px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid #000000;
+    border-radius: 14px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-6px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    will-change: opacity, transform;
+}
+
+#memory-popup.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#memory-popup-text {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+/* ─── Memory dialog ─────────────────────────────────────────────────────── */
+#memory-dialog-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+#memory-dialog-backdrop.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#memory-dialog {
+    position: relative;
+    z-index: 1;
+    width: min(460px, calc(100vw - 32px));
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+    padding: 28px 24px 24px;
+    border: 1px solid #000000;
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.14);
+    pointer-events: auto;
+}
+
+#memory-dialog-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #000000;
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+#memory-dialog-close:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: #000000;
+}
+
+.memory-dialog-title {
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    margin-bottom: 16px;
+}
+
+#memory-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.memory-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.memory-field > label {
+    font-size: 0.82rem;
+    letter-spacing: 0.04rem;
+}
+
+.memory-image-upload-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 14px 18px;
+    border: 1px dashed #000000;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    transition: background-color 0.2s ease;
+    text-align: center;
+}
+
+.memory-image-upload-label:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
+#memory-image {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+#memory-image-preview {
+    width: 100%;
+    max-height: 180px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid #000000;
+}
+
+#memory-description {
+    width: 100%;
+    padding: 14px 18px;
+    border: 1px solid #000000;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #000000;
+    font: inherit;
+    resize: vertical;
+}
+
+#memory-description:focus-visible {
+    outline: 2px solid #000000;
+    outline-offset: 2px;
+}
+
+#memory-status {
+    min-height: 1.25rem;
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+#memory-status[data-state="error"] {
+    color: #a10f0f;
+}
+
+#memory-status[data-state="success"] {
+    color: #116333;
+}
+
+#memory-submit-btn {
+    width: 100%;
+    padding: 14px 20px;
+}

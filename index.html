@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POWAI Year 1 Experience</title>
+    <link rel="stylesheet" href="https://use.typekit.net/hcc4loz.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+</head>
+<body>
+    <div id="threejs-container"></div>
+    
+    <div id="overlay">
+        <div id="header-container">
+            <h1 id="header">POWAI</h1>
+            <h2 id="sub-header">year 1</h2>
+        </div>
+
+        <div id="scroll-indicator">
+            <span id="scroll-label">scroll</span>
+            <span id="scroll-arrow" aria-hidden="true"></span>
+        </div>
+        
+        <div id="button-container">
+            <button id="explore-btn">Explore</button>
+            <button id="login-btn">Login to Add Memories</button>
+        </div>
+        
+        <div id="instructions">
+            WASD to move<br>
+            Mouse to look<br>
+            Spacebar to lock/unlock controls
+        </div>
+
+        <!-- Memory popup shown when near a memory orb -->
+        <div id="memory-popup" aria-live="polite">
+            <p id="memory-popup-text"></p>
+        </div>
+
+        <div id="auth-modal-backdrop" aria-hidden="true">
+            <div id="auth-modal" role="dialog" aria-modal="true" aria-label="Login to add memories">
+                <button id="auth-modal-close" type="button" aria-label="Close login popup">×</button>
+
+                <form id="auth-form" novalidate>
+                    <button type="button" id="auth-mode-toggle" class="auth-text-button auth-mode-hint">
+                        logging in for the first time?
+                    </button>
+
+                    <div class="auth-field" data-auth-field="email">
+                        <label for="auth-email">Email</label>
+                        <input id="auth-email" name="email" type="email" autocomplete="email" />
+                    </div>
+
+                    <div class="auth-field" data-auth-field="password">
+                        <label for="auth-password">Password</label>
+                        <input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="6" />
+                    </div>
+
+                    <p id="auth-status" aria-live="polite"></p>
+                    <p id="auth-helper-copy">only 2024@bitsdesign.edu.in emails are allowed</p>
+
+                    <button id="auth-submit-btn" type="submit">Log In</button>
+                </form>
+            </div>
+        </div>
+        <!-- Memory dialog (V key when logged in) -->
+        <div id="memory-dialog-backdrop" aria-hidden="true">
+            <div id="memory-dialog" role="dialog" aria-modal="true" aria-label="Add a memory">
+                <button id="memory-dialog-close" type="button" aria-label="Close">×</button>
+                <h3 class="memory-dialog-title">Add a Memory</h3>
+
+                <form id="memory-form" novalidate>
+                    <div class="memory-field">
+                        <label class="memory-image-upload-label" for="memory-image">
+                            <span id="memory-image-label-text">Choose a photo (optional)</span>
+                        </label>
+                        <input id="memory-image" name="image" type="file" accept="image/*" />
+                        <img id="memory-image-preview" src="" alt="Preview" hidden />
+                    </div>
+
+                    <div class="memory-field">
+                        <label for="memory-description">Description <span aria-hidden="true">*</span></label>
+                        <textarea id="memory-description" name="description" rows="3" placeholder="What's this memory about?"></textarea>
+                    </div>
+
+                    <p id="memory-status" aria-live="polite"></p>
+
+                    <button id="memory-submit-btn" type="submit">Place Memory</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
