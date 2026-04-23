@@ -153,7 +153,8 @@ export const config = {
 
     // Memory system settings (press V when logged in to place a memory)
     memories: {
-        orbHeight: 5,           // Y-center for orbs (and image plane) — adjust freely
+        orbHeightMin: 4.8,        // minimum Y for a spawned orb (world units) — must be ≤ orbHeightMax
+        orbHeightMax: 5.2,        // maximum Y for a spawned orb (world units)
         orbRadius: 0.1,        // radius of the red orb sphere
         orbColor: 0xff2222,     // orb colour
         proximityDistance: 1,   // world-unit distance that triggers plane reveal

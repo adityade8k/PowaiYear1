@@ -840,7 +840,6 @@ class PowaiExperience {
         const anchor = this.getCameraAnchor().position;
         const spawnPos = {
             x: anchor.x + forward.x * config.memories.spawnDistance,
-            y: config.memories.orbHeight,
             z: anchor.z + forward.z * config.memories.spawnDistance
         };
 
@@ -912,8 +911,10 @@ class PowaiExperience {
     // ─── Memory scene objects ─────────────────────────────────────────────────
 
     createMemoryObjects({ id, description, imageUrl, position, userName = 'Test User' }) {
-        // Always use config orbHeight for Y — changing the config repositions all memories
-        const pos = new THREE.Vector3(position.x, config.memories.orbHeight, position.z);
+        const hMin = Math.min(config.memories.orbHeightMin, config.memories.orbHeightMax);
+        const hMax = Math.max(config.memories.orbHeightMin, config.memories.orbHeightMax);
+        const orbY = hMin + Math.random() * (hMax - hMin);
+        const pos = new THREE.Vector3(position.x, orbY, position.z);
 
         // Pick a random orb colour from the palette on each creation
         const orbPalette = [0x252a60, 0xf68722, 0xb72f26];
