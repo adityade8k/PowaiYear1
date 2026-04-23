@@ -127,6 +127,17 @@
     display: none;
 }
 
+#mobile-pending-preview {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
 #mobile-lock-btn,
 #mobile-memory-btn {
     padding: 10px 22px;

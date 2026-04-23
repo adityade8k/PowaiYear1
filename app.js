@@ -137,6 +137,7 @@ class PowaiExperience {
         this.isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         this.joystick1 = null;
         this.joystick2 = null;
+        this.pendingMemory = null; // mobile two-step: { file, description } stored before placement
         this.isAuthModalOpen = false;
         /** @type {'login' | 'register'} */
         this.authMode = 'login';
@@ -730,6 +731,8 @@ class PowaiExperience {
         document.getElementById('memory-image-preview').hidden = true;
         document.getElementById('memory-image-preview').src = '';
         document.getElementById('memory-image-label-text').textContent = 'Choose a photo *';
+        // On mobile the modal only collects the data; actual placement is a separate step
+        document.getElementById('memory-submit-btn').textContent = this.isMobile ? 'Save Memory' : 'Place Memory';
         this.clearMemoryStatus();
         this.syncBodyUiState();
         window.requestAnimationFrame(() => {
@@ -777,7 +780,9 @@ class PowaiExperience {
         btn.disabled = isPending;
         fileInput.disabled = isPending;
         descInput.disabled = isPending;
-        btn.textContent = isPending ? 'Placing…' : 'Place Memory';
+        btn.textContent = isPending
+            ? (this.isMobile ? 'Saving…' : 'Placing…')
+            : (this.isMobile ? 'Save Memory' : 'Place Memory');
     }
 
     async submitMemory() {
@@ -800,57 +805,105 @@ class PowaiExperience {
             return;
         }
 
+        // ── Mobile two-step flow ──────────────────────────────────────────────
+        // Step 1: collect data, close the modal, show the preview thumbnail.
+        // The orb is placed later when the user taps "Place Memory".
+        if (this.isMobile) {
+            this.pendingMemory = { file, description };
+            this.closeMemoryDialog();
+            this.updateMobilePendingUI();
+            return;
+        }
+
+        // ── Desktop: upload + place immediately ───────────────────────────────
         this.setMemorySubmitPending(true);
-
         try {
-            // Compute spawn position: directly in front of the player in XZ
-            const forward = new THREE.Vector3();
-            this.camera.getWorldDirection(forward);
-            forward.y = 0;
-            forward.normalize();
-            const anchor = this.getCameraAnchor().position;
-            const spawnPos = {
-                x: anchor.x + forward.x * config.memories.spawnDistance,
-                y: config.memories.orbHeight,
-                z: anchor.z + forward.z * config.memories.spawnDistance
-            };
-
-            // Upload image if provided
-            let imageUrl = null;
-            if (file && this.firebaseStorage) {
-                const uid = this.firebaseAuth.currentUser.uid;
-                const path = `${config.memories.storagePath}/${uid}/${Date.now()}_${file.name}`;
-                const sRef = storageRef(this.firebaseStorage, path);
-                await uploadBytes(sRef, file);
-                imageUrl = await getDownloadURL(sRef);
-            }
-
-            // Derive display name from the signed-in email
-            const userEmail = this.firebaseAuth.currentUser.email || '';
-            const userName = this.extractDisplayName(userEmail);
-
-            // Save to Firestore
-            const docRef = await addDoc(
-                collection(this.firestoreDb, config.memories.firestoreCollection),
-                {
-                    userId: this.firebaseAuth.currentUser.uid,
-                    userName,
-                    description,
-                    imageUrl,
-                    position: spawnPos,
-                    createdAt: new Date().toISOString()
-                }
-            );
-
-            // Create in 3D scene
-            this.createMemoryObjects({ id: docRef.id, description, imageUrl, position: spawnPos, userName });
-
+            await this.uploadAndPlaceMemory({ file, description });
             this.closeMemoryDialog();
         } catch (error) {
             console.error('submitMemory error:', error);
             this.setMemoryStatus('Could not save memory — try again.', 'error');
         } finally {
             this.setMemorySubmitPending(false);
+        }
+    }
+
+    // Shared upload + Firestore save + 3D spawn — used by both desktop and mobile placement.
+    async uploadAndPlaceMemory({ file, description }) {
+        // Compute spawn position: directly in front of the player in XZ
+        const forward = new THREE.Vector3();
+        this.camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+        const anchor = this.getCameraAnchor().position;
+        const spawnPos = {
+            x: anchor.x + forward.x * config.memories.spawnDistance,
+            y: config.memories.orbHeight,
+            z: anchor.z + forward.z * config.memories.spawnDistance
+        };
+
+        // Upload image
+        let imageUrl = null;
+        if (file && this.firebaseStorage) {
+            const uid = this.firebaseAuth.currentUser.uid;
+            const path = `${config.memories.storagePath}/${uid}/${Date.now()}_${file.name}`;
+            const sRef = storageRef(this.firebaseStorage, path);
+            await uploadBytes(sRef, file);
+            imageUrl = await getDownloadURL(sRef);
+        }
+
+        const userEmail = this.firebaseAuth.currentUser.email || '';
+        const userName = this.extractDisplayName(userEmail);
+
+        const docRef = await addDoc(
+            collection(this.firestoreDb, config.memories.firestoreCollection),
+            {
+                userId: this.firebaseAuth.currentUser.uid,
+                userName,
+                description,
+                imageUrl,
+                position: spawnPos,
+                createdAt: new Date().toISOString()
+            }
+        );
+
+        this.createMemoryObjects({ id: docRef.id, description, imageUrl, position: spawnPos, userName });
+    }
+
+    // Mobile step 2: place the pending orb at the current player position.
+    async placePendingMemory() {
+        if (!this.pendingMemory || this.isMemorySubmitPending) return;
+        this.isMemorySubmitPending = true;
+        const btn = document.getElementById('mobile-memory-btn');
+        if (btn) btn.textContent = 'Placing…';
+        try {
+            await this.uploadAndPlaceMemory(this.pendingMemory);
+            this.pendingMemory = null;
+            this.updateMobilePendingUI();
+        } catch (error) {
+            console.error('placePendingMemory error:', error);
+        } finally {
+            this.isMemorySubmitPending = false;
+            this.updateMobilePendingUI();
+        }
+    }
+
+    // Sync the mobile action bar to reflect pending state.
+    updateMobilePendingUI() {
+        const btn = document.getElementById('mobile-memory-btn');
+        const preview = document.getElementById('mobile-pending-preview');
+        if (!btn || !preview) return;
+
+        if (this.pendingMemory) {
+            btn.textContent = 'Place Memory';
+            // Show thumbnail from the locally selected file
+            const url = URL.createObjectURL(this.pendingMemory.file);
+            preview.src = url;
+            preview.hidden = false;
+        } else {
+            btn.textContent = 'Add Memory';
+            preview.hidden = true;
+            preview.src = '';
         }
     }
 
@@ -1513,7 +1566,7 @@ class PowaiExperience {
     }
 
     onScroll() {
-        if (this.isLocked || this.isAuthModalOpen) {
+        if (this.isLocked || this.isAuthModalOpen || this.isMemoryDialogOpen) {
             if (window.scrollY !== this.scrollY) {
                 window.scrollTo(0, this.scrollY);
             }
@@ -1530,7 +1583,7 @@ class PowaiExperience {
     }
 
     onWheel(event) {
-        if (this.isLocked || this.isAuthModalOpen) {
+        if (this.isLocked || this.isAuthModalOpen || this.isMemoryDialogOpen) {
             event.preventDefault();
         }
     }
@@ -1849,10 +1902,16 @@ class PowaiExperience {
             else this.mobileLock();
         });
 
-        // Add Memory button — unlock controls first, then open dialog
+        // Memory button — behaviour depends on whether a pending memory exists
         document.getElementById('mobile-memory-btn').addEventListener('click', () => {
-            if (this.isLocked) this.mobileUnlock();
-            if (this.enteredAsLoggedIn) this.openMemoryDialog();
+            if (this.pendingMemory) {
+                // Step 2: place the orb at current position
+                this.placePendingMemory();
+            } else {
+                // Step 1: open the form to collect photo + description
+                if (this.isLocked) this.mobileUnlock();
+                if (this.enteredAsLoggedIn) this.openMemoryDialog();
+            }
         });
     }
 
@@ -1866,6 +1925,11 @@ class PowaiExperience {
         const controls = document.getElementById('mobile-controls');
         if (controls) controls.classList.remove('is-visible');
         if (this.isLocked) this.mobileUnlock();
+        // Discard any unsaved pending memory when leaving explore mode
+        if (this.pendingMemory) {
+            this.pendingMemory = null;
+            this.updateMobilePendingUI();
+        }
     }
 
     mobileLock() {
