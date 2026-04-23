@@ -43,7 +43,11 @@ export const config = {
             color: "#262626",
             position: { top: "50%", left: "50%", transform: "translate(-50%, -50%)" },
             fadeStartSection: 0,
-            fadeEndSection: 0.3
+            fadeEndSection: 0.3,
+            mobile: {
+                fontSize: "4rem",
+                position: { top: "46%", left: "50%", transform: "translate(-50%, -50%)" }
+            }
         },
         subHeader: {
             text: "year 1",
@@ -51,7 +55,11 @@ export const config = {
             color: "#383838",
             position: { top: "58%", left: "50%", transform: "translate(-50%, -50%)" },
             fadeStartSection: 0,
-            fadeEndSection: 0.3
+            fadeEndSection: 0.3,
+            mobile: {
+                fontSize: "2rem",
+                position: { top: "56%", left: "50%", transform: "translate(-50%, -50%)" }
+            }
         },
         translateEndSection: 1,
         scrollTranslateViewportRatio: -0.72

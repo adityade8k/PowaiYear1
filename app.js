@@ -306,22 +306,24 @@ class PowaiExperience {
 
         // Header
         const header = document.getElementById('header');
+        const headerCfg = (this.isMobile && config.text.header.mobile) ? config.text.header.mobile : config.text.header;
         header.textContent = config.text.header.text;
-        header.style.fontSize = config.text.header.fontSize;
+        header.style.fontSize = headerCfg.fontSize;
         header.style.color = config.text.header.color;
-        header.style.top = config.text.header.position.top;
-        header.style.left = config.text.header.position.left;
-        header.style.transform = config.text.header.position.transform;
+        header.style.top = headerCfg.position.top;
+        header.style.left = headerCfg.position.left;
+        header.style.transform = headerCfg.position.transform;
         header.style.transitionDuration = `${config.intro.headerFadeDuration}ms`;
 
         // Sub-header
         const subHeader = document.getElementById('sub-header');
+        const subHeaderCfg = (this.isMobile && config.text.subHeader.mobile) ? config.text.subHeader.mobile : config.text.subHeader;
         subHeader.textContent = config.text.subHeader.text;
-        subHeader.style.fontSize = config.text.subHeader.fontSize;
+        subHeader.style.fontSize = subHeaderCfg.fontSize;
         subHeader.style.color = config.text.subHeader.color;
-        subHeader.style.top = config.text.subHeader.position.top;
-        subHeader.style.left = config.text.subHeader.position.left;
-        subHeader.style.transform = config.text.subHeader.position.transform;
+        subHeader.style.top = subHeaderCfg.position.top;
+        subHeader.style.left = subHeaderCfg.position.left;
+        subHeader.style.transform = subHeaderCfg.position.transform;
         subHeader.style.transitionDuration = `${config.intro.subHeaderFadeDuration}ms`;
 
         // Scroll indicator
