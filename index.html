@@ -6,6 +6,7 @@
     <title>POWAI Year 1 Experience</title>
     <link rel="stylesheet" href="https://use.typekit.net/hcc4loz.css">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="mobile.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
@@ -91,6 +92,30 @@
                     <button id="memory-submit-btn" type="submit">Place Memory</button>
                 </form>
             </div>
+        </div>
+    </div>
+
+    <!-- Portrait-mode blocker (mobile only) -->
+    <div id="portrait-popup">
+        <img src="images/rotate.png" alt="Rotate device to landscape">
+        <p>Rotate to landscape to continue</p>
+    </div>
+
+    <!-- Mobile explore controls (joysticks + action buttons) -->
+    <div id="mobile-controls">
+        <div id="mobile-joysticks">
+            <div id="stick1Container">
+                <img class="baseImage" src="images/joystick-base.png" alt="">
+                <img id="stick1" class="stickImage" src="images/joystick-red.png" alt="">
+            </div>
+            <div id="stick2Container">
+                <img class="baseImage" src="images/joystick-base.png" alt="">
+                <img id="stick2" class="stickImage" src="images/joystick-blue.png" alt="">
+            </div>
+        </div>
+        <div id="mobile-action-bar">
+            <button id="mobile-lock-btn">Lock Controls</button>
+            <button id="mobile-memory-btn" hidden>Add Memory</button>
         </div>
     </div>
 

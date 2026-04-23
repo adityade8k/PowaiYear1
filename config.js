@@ -88,6 +88,7 @@ export const config = {
         finalPosition: { x: 0, y: 5, z: 0 }, // Center position
         scale: { x: 1, y: 1, z: 1 },
         settleDuration: 1800,
+        returnDuration: 1200,   // duration for model to lerp back to initialPosition
         rotationSpeed: 0.45,
         rotationResetDuration: 900
     },
@@ -152,13 +153,16 @@ export const config = {
 
     // Memory system settings (press V when logged in to place a memory)
     memories: {
-        orbHeight: 5.1,           // Y-center for orbs (and image plane) — adjust freely
+        orbHeight: 5,           // Y-center for orbs (and image plane) — adjust freely
         orbRadius: 0.1,        // radius of the red orb sphere
         orbColor: 0xff2222,     // orb colour
-        proximityDistance: 5,   // world-unit distance that triggers plane reveal
-        spawnDistance: 4,       // world units in front of player where memory spawns
-        planeWidth: 3.2,        // width of the image plane (world units)
-        planeHeight: 2.2,       // height of the image plane (world units)
+        proximityDistance: 1,   // world-unit distance that triggers plane reveal
+        spawnDistance: 1,       // world units in front of player where memory spawns
+        planeHeight: 0.9,       // height of the image plane (world units); width is derived from image aspect ratio
+        planeFadeDuration: 0.5, // seconds for plane/orb opacity transition
+        orbPulseSpeed: 1,     // glow pulse frequency in Hz
+        orbPulseMin: 0.5,       // minimum emissiveIntensity
+        orbPulseMax: 1.2,       // maximum emissiveIntensity
         firestoreCollection: 'memories',
         storagePath: 'memories'
     },
@@ -166,7 +170,7 @@ export const config = {
     // Instructions box settings
     instructions: {
         text: "WASD to move<br>Mouse to look<br>Spacebar to lock/unlock controls",
-        position: { bottom: "10px", right: "10px" },
+        position: { bottom: "10px", left: "10px" },
         backgroundColor: "rgba(0, 0, 0, 0.7)",
         color: "#ffffff",
         padding: "10px",
@@ -175,12 +179,22 @@ export const config = {
         showAfterExplore: true
     },
 
+    // Reticle (crosshair ring shown when pointer-locked)
+    reticle: {
+        innerRadius: 0.006,
+        outerRadius: 0.009,
+        segments: 32,
+        color: 0xffffff,
+        zOffset: -0.4    // local Z in front of camera
+    },
+
     // Controls settings
     controls: {
-        moveSpeed: 5,
+        moveSpeed: 3,
         lookSpeed: 0.002,
-        jumpSpeed: 0, // No jumping, Y fixed
-        gravity: 0 // No gravity for walking
+        mobileLookSensitivity: 1.8, // radians/second at full joystick deflection
+        jumpSpeed: 0,
+        gravity: 0
     },
 
     // Scroll settings

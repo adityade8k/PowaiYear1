@@ -1,0 +1,248 @@
+/* mobile.css — all mobile-specific styles and overrides */
+
+/* ─── Portrait-mode popup ───────────────────────────────────────────────── */
+#portrait-popup {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #ffffff;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 32px;
+    text-align: center;
+    font-family: inherit;
+    pointer-events: auto;
+}
+
+#portrait-popup.is-visible {
+    display: flex;
+}
+
+#portrait-popup img {
+    width: 72px;
+    height: auto;
+    opacity: 0.65;
+}
+
+#portrait-popup p {
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+    color: #262626;
+}
+
+/* ─── Mobile controls overlay ───────────────────────────────────────────── */
+#mobile-controls {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+}
+
+#mobile-controls.is-visible {
+    display: block;
+}
+
+/* Joystick containers */
+#mobile-joysticks {
+    display: none;
+}
+
+#mobile-joysticks.is-visible {
+    display: block;
+}
+
+#stick1Container,
+#stick2Container {
+    width: 20vh;
+    height: 20vh;
+    position: absolute;
+    bottom: 8%;
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+#stick1Container { left: 4%; }
+#stick2Container { right: 4%; }
+
+#stick1Container .baseImage,
+#stick2Container .baseImage {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+#stick1,
+#stick2 {
+    position: absolute;
+    width: 55%;
+    height: 55%;
+    top: 22.5%;
+    left: 22.5%;
+    object-fit: contain;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Mobile action bar (lock button + memory button) */
+#mobile-action-bar {
+    position: absolute;
+    bottom: 8%;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    pointer-events: auto;
+}
+
+#mobile-lock-btn,
+#mobile-memory-btn {
+    padding: 10px 22px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    letter-spacing: 0.04em;
+    border-radius: 999px;
+    border: 1px solid #000000;
+    background: rgba(255, 255, 255, 0.88);
+    color: #000000;
+    cursor: pointer;
+    white-space: nowrap;
+    pointer-events: auto;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    min-height: 44px;
+}
+
+#mobile-lock-btn:hover,
+#mobile-lock-btn:active,
+#mobile-memory-btn:hover,
+#mobile-memory-btn:active {
+    background: #000000;
+    color: #ffffff;
+}
+
+/* ─── Touch-device layout overrides (coarse pointer = touch screen) ──────── */
+@media (pointer: coarse) {
+
+    /*
+     * iOS Safari bug: when a parent has pointer-events:none, touch events
+     * do not reliably reach children with pointer-events:auto. The fix is to
+     * give the overlay pointer-events:auto and explicitly mark non-interactive
+     * children as none.
+     */
+    #overlay {
+        pointer-events: auto;
+        background: transparent;
+    }
+
+    /* Non-interactive overlay children — keep them transparent to touches */
+    #header-container,
+    #instructions,
+    #memory-popup {
+        pointer-events: none;
+    }
+
+    /* ── Button container: always on top and fully touchable ────────────── */
+    #button-container {
+        z-index: 100;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Larger, more comfortable touch targets for main buttons ─────────── */
+    #explore-btn,
+    #login-btn {
+        min-height: 52px;
+        min-width: 180px;
+        font-size: 0.95rem;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        cursor: pointer;
+    }
+
+    /* ── Scroll indicator ────────────────────────────────────────────────── */
+    #scroll-indicator {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        cursor: pointer;
+        min-width: 60px;
+        min-height: 60px;
+        justify-content: center;
+    }
+
+    /* ── Auth modal: sized for mobile viewport + keyboard ────────────────── */
+    #auth-modal-backdrop {
+        align-items: flex-end;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    #auth-modal {
+        width: 100%;
+        max-height: 85dvh;
+        border-radius: 16px 16px 0 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Prevent iOS zoom on input focus */
+    #auth-email,
+    #auth-password {
+        font-size: 16px;
+    }
+
+    #auth-submit-btn {
+        min-height: 48px;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    #auth-modal-close {
+        touch-action: manipulation;
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* ── Memory dialog ────────────────────────────────────────────────────── */
+    #memory-dialog-backdrop {
+        align-items: flex-end;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    #memory-dialog {
+        width: 100%;
+        max-height: 85dvh;
+        border-radius: 16px 16px 0 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #memory-description {
+        font-size: 16px; /* Prevent iOS zoom */
+    }
+
+    #memory-submit-btn,
+    #memory-dialog-close {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        min-height: 48px;
+    }
+
+    /* ── Memory popup (in-world text) ─────────────────────────────────────── */
+    #memory-popup {
+        font-size: 0.8rem;
+        max-width: 80vw;
+        bottom: 55%;
+    }
+}

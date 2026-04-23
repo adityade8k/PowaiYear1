@@ -1,6 +1,75 @@
 // app.js - Main Three.js application logic
 
 import { config } from './config.js';
+
+// ─── JoystickController (from CommieP/touchScreenFPS7) ────────────────────────
+class JoystickController {
+    constructor(stickID, maxDistance, deadzone) {
+        this.id = stickID;
+        const stick = document.getElementById(stickID);
+        this.dragStart = null;
+        this.touchId = null;
+        this.active = false;
+        this.value = { x: 0, y: 0 };
+
+        const self = this;
+
+        function handleDown(event) {
+            self.active = true;
+            stick.style.transition = '0s';
+            event.preventDefault();
+            if (event.changedTouches)
+                self.dragStart = { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY };
+            else
+                self.dragStart = { x: event.clientX, y: event.clientY };
+            if (event.changedTouches)
+                self.touchId = event.changedTouches[0].identifier;
+        }
+
+        function handleMove(event) {
+            if (!self.active) return;
+            let touchmoveId = null;
+            if (event.changedTouches) {
+                for (let i = 0; i < event.changedTouches.length; i++) {
+                    if (self.touchId === event.changedTouches[i].identifier) {
+                        touchmoveId = i;
+                        event.clientX = event.changedTouches[i].clientX;
+                        event.clientY = event.changedTouches[i].clientY;
+                    }
+                }
+                if (touchmoveId === null) return;
+            }
+            const xDiff = event.clientX - self.dragStart.x;
+            const yDiff = event.clientY - self.dragStart.y;
+            const angle = Math.atan2(yDiff, xDiff);
+            const distance = Math.min(maxDistance, Math.hypot(xDiff, yDiff));
+            stick.style.transform = `translate3d(${distance * Math.cos(angle)}px, ${distance * Math.sin(angle)}px, 0px)`;
+            const distance2 = distance < deadzone ? 0 : maxDistance / (maxDistance - deadzone) * (distance - deadzone);
+            self.value = {
+                x: parseFloat((distance2 * Math.cos(angle) / maxDistance).toFixed(4)),
+                y: parseFloat((distance2 * Math.sin(angle) / maxDistance).toFixed(4))
+            };
+        }
+
+        function handleUp(event) {
+            if (!self.active) return;
+            if (event.changedTouches && self.touchId !== event.changedTouches[0].identifier) return;
+            stick.style.transition = '.2s';
+            stick.style.transform = 'translate3d(0px, 0px, 0px)';
+            self.value = { x: 0, y: 0 };
+            self.touchId = null;
+            self.active = false;
+        }
+
+        stick.addEventListener('mousedown', handleDown);
+        stick.addEventListener('touchstart', handleDown, { passive: false });
+        document.addEventListener('mousemove', handleMove, { passive: false });
+        document.addEventListener('touchmove', handleMove, { passive: false });
+        document.addEventListener('mouseup', handleUp);
+        document.addEventListener('touchend', handleUp);
+    }
+}
+// ──────────────────────────────────────────────────────────────────────────────
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
 import {
     getAuth,
@@ -51,6 +120,15 @@ class PowaiExperience {
         this.modelDefaultRotationY = 0;
         this.modelRotationReset = null;
         this.isModelRotationStopped = false;
+        this.isExploring = false;          // true when explore mode is active (camera panned)
+        this.isReturningFromExplore = false; // true after scrolling up from explore, before scrolling down
+        this.modelLerpAnimation = null;    // { startTime, duration, fromY, toY }
+        this.cameraRotationReset = null;   // { startTime, duration, fromYaw, fromPitch }
+        this.reticle = null;
+        this.raycaster = new THREE.Raycaster();
+        this.isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        this.joystick1 = null;
+        this.joystick2 = null;
         this.isAuthModalOpen = false;
         /** @type {'login' | 'register'} */
         this.authMode = 'login';
@@ -133,6 +211,14 @@ class PowaiExperience {
             config.camera.initialPosition.z
         );
 
+        // Reticle (crosshair ring attached to camera)
+        this.createReticle();
+
+        // Mobile: correct Euler order for direct rotation manipulation
+        if (this.isMobile) {
+            this.camera.rotation.order = 'YXZ';
+        }
+
         // Load GLTF model
         this.loadModel();
 
@@ -147,6 +233,24 @@ class PowaiExperience {
 
         // Handle window resize
         window.addEventListener('resize', () => this.onWindowResize());
+    }
+
+    createReticle() {
+        const { innerRadius, outerRadius, segments, color, zOffset } = config.reticle;
+        const geo = new THREE.RingGeometry(innerRadius, outerRadius, segments);
+        const mat = new THREE.MeshBasicMaterial({
+            color,
+            side: THREE.DoubleSide,
+            depthTest: false,
+            depthWrite: false,
+            transparent: true,
+            opacity: 0.85
+        });
+        this.reticle = new THREE.Mesh(geo, mat);
+        this.reticle.position.set(0, 0, zOffset);
+        this.reticle.renderOrder = 999;
+        this.reticle.visible = false;
+        this.camera.add(this.reticle);
     }
 
     getCameraAnchor() {
@@ -251,7 +355,7 @@ class PowaiExperience {
         const instructions = document.getElementById('instructions');
         instructions.innerHTML = config.instructions.text;
         instructions.style.bottom = config.instructions.position.bottom;
-        instructions.style.right = config.instructions.position.right;
+        instructions.style.left = config.instructions.position.left;
         instructions.style.backgroundColor = config.instructions.backgroundColor;
         instructions.style.color = config.instructions.color;
         instructions.style.padding = config.instructions.padding;
@@ -457,6 +561,8 @@ class PowaiExperience {
 
     openAuthModal() {
         this.isAuthModalOpen = true;
+        // Hide buttons while the login popup is open
+        this.hideButtonContainer();
         document.getElementById('auth-modal-backdrop').classList.add('is-visible');
         document.getElementById('auth-modal-backdrop').setAttribute('aria-hidden', 'false');
         document.getElementById('auth-form').reset();
@@ -484,6 +590,11 @@ class PowaiExperience {
         }
 
         this.setAuthPendingState(false);
+
+        // Restore button container if we're in the menu state
+        if (this.isMenuMode) {
+            this.showButtonContainer();
+        }
     }
 
     async submitAuthForm() {
@@ -697,36 +808,59 @@ class PowaiExperience {
         // Always use config orbHeight for Y — changing the config repositions all memories
         const pos = new THREE.Vector3(position.x, config.memories.orbHeight, position.z);
 
-        // Red orb
+        // Pick a random orb colour from the palette on each creation
+        const orbPalette = [0x252a60, 0xf68722, 0xb72f26];
+        const randomOrbColor = orbPalette[Math.floor(Math.random() * orbPalette.length)];
+
         const orbGeo = new THREE.SphereGeometry(config.memories.orbRadius, 18, 12);
         const orbMat = new THREE.MeshStandardMaterial({
-            color: config.memories.orbColor,
-            emissive: config.memories.orbColor,
-            emissiveIntensity: 0.35
+            color: randomOrbColor,
+            emissive: randomOrbColor,
+            emissiveIntensity: 0.35,
+            transparent: true,
+            opacity: 1
         });
         const orb = new THREE.Mesh(orbGeo, orbMat);
         orb.position.copy(pos);
         this.scene.add(orb);
 
-        // Image plane
-        const planeGeo = new THREE.PlaneGeometry(config.memories.planeWidth, config.memories.planeHeight);
+        // Image plane — starts invisible (opacity 0); fades in on proximity
+        const planeGeo = new THREE.PlaneGeometry(config.memories.planeHeight, config.memories.planeHeight);
         let planeMat;
         if (imageUrl) {
             const texLoader = new THREE.TextureLoader();
             texLoader.crossOrigin = 'anonymous';
             const texture = texLoader.load(
                 imageUrl,
-                (tex) => { tex.needsUpdate = true; },
+                (tex) => {
+                    // Resize geometry to match the image's actual aspect ratio
+                    const aspect = tex.image.width / tex.image.height;
+                    plane.geometry.dispose();
+                    plane.geometry = new THREE.PlaneGeometry(
+                        config.memories.planeHeight * aspect,
+                        config.memories.planeHeight
+                    );
+                    tex.needsUpdate = true;
+                },
                 undefined,
                 (err) => { console.error('Memory texture failed to load:', err); }
             );
-            planeMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+            planeMat = new THREE.MeshBasicMaterial({
+                map: texture,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0
+            });
         } else {
-            planeMat = new THREE.MeshBasicMaterial({ color: 0xdddddd, side: THREE.DoubleSide });
+            planeMat = new THREE.MeshBasicMaterial({
+                color: 0xdddddd,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0
+            });
         }
         const plane = new THREE.Mesh(planeGeo, planeMat);
         plane.position.copy(pos);
-        plane.visible = false;
         this.scene.add(plane);
 
         this.memories.push({ id, description, imageUrl, position: pos, orb, plane, isNear: false });
@@ -734,40 +868,74 @@ class PowaiExperience {
 
     // ─── Proximity detection ──────────────────────────────────────────────────
 
-    updateMemoryProximity() {
-        if (!this.hasExplored || this.memories.length === 0) return;
+    updateMemoryProximity(delta) {
+        // Only active while pointer-locked in explore mode
+        if (!this.isExploring || !this.isLocked || this.memories.length === 0) return;
 
-        const playerPos = this.getCameraAnchor().position;
-        let closestMemory = null;
-        let closestDist = Infinity;
+        const fadeStep = delta / config.memories.planeFadeDuration;
+
+        // Cast ray from camera centre forward (used only for activation)
+        this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+        const orbMeshes = this.memories.filter(m => m.orb.visible || m.isNear).map(m => m.orb);
+        const intersects = orbMeshes.length > 0
+            ? this.raycaster.intersectObjects(orbMeshes)
+            : [];
+        const hitOrb = intersects.length > 0 ? intersects[0].object : null;
+
+        const anchor = this.getCameraAnchor().position;
+        let activeMemory = null;
 
         for (const memory of this.memories) {
-            const dx = playerPos.x - memory.position.x;
-            const dz = playerPos.z - memory.position.z;
+            const dx = anchor.x - memory.position.x;
+            const dz = anchor.z - memory.position.z;
             const dist = Math.sqrt(dx * dx + dz * dz);
-            const isNear = dist < config.memories.proximityDistance;
+            const isInRange = dist < config.memories.proximityDistance;
 
-            if (isNear !== memory.isNear) {
-                memory.isNear = isNear;
-                memory.orb.visible = !isNear;
-                memory.plane.visible = isNear;
+            // Activate: raycaster hits this orb AND player is close enough
+            if (!memory.isNear && memory.orb === hitOrb && isInRange) {
+                memory.isNear = true;
+            }
+            // Deactivate: player walked out of range (ignores where camera is pointing)
+            if (memory.isNear && !isInRange) {
+                memory.isNear = false;
             }
 
-            if (isNear) {
-                // Rotate plane to always face the player (Y axis only, stays upright)
+            if (memory.isNear) {
+                memory.plane.material.opacity = Math.min(1, memory.plane.material.opacity + fadeStep);
+                // Keep plane facing the player
                 memory.plane.rotation.y = Math.atan2(dx, dz);
-
-                if (dist < closestDist) {
-                    closestDist = dist;
-                    closestMemory = memory;
-                }
+                activeMemory = memory;
+            } else {
+                memory.plane.material.opacity = Math.max(0, memory.plane.material.opacity - fadeStep);
             }
+
+            // Orb crossfades inversely with the plane
+            memory.orb.material.opacity = 1 - memory.plane.material.opacity;
+            memory.orb.visible   = memory.orb.material.opacity   > 0;
+            memory.plane.visible = memory.plane.material.opacity > 0;
         }
 
-        if (closestMemory) {
-            this.showMemoryPopup(closestMemory.description);
+        if (activeMemory) {
+            this.showMemoryPopup(activeMemory.description);
         } else {
             this.hideMemoryPopup();
+        }
+    }
+
+    updateOrbPulse(timestamp) {
+        if (!this.isExploring || this.memories.length === 0) return;
+        const t = timestamp / 1000;
+        for (let i = 0; i < this.memories.length; i++) {
+            const memory = this.memories[i];
+            if (!memory.orb.visible) continue;
+            // Each orb gets its own phase so they pulse independently
+            const phase = (i / this.memories.length) * Math.PI * 2;
+            const sine = (Math.sin(t * config.memories.orbPulseSpeed * Math.PI * 2 + phase) + 1) / 2;
+            memory.orb.material.emissiveIntensity = THREE.MathUtils.lerp(
+                config.memories.orbPulseMin,
+                config.memories.orbPulseMax,
+                sine
+            );
         }
     }
 
@@ -854,6 +1022,16 @@ class PowaiExperience {
 
     enterExperience() {
         this.triggerSequenceStartTime = null;
+        this.modelLerpAnimation = null;
+        this.cameraRotationReset = null;
+        // Restore orbs and reset planes for a clean explore entry
+        for (const memory of this.memories) {
+            memory.orb.material.opacity = 1;
+            memory.orb.visible = true;
+            memory.plane.material.opacity = 0;
+            memory.plane.visible = false;
+            memory.isNear = false;
+        }
         if (this.model) {
             this.model.position.set(
                 config.model.finalPosition.x,
@@ -864,9 +1042,15 @@ class PowaiExperience {
         this.hasScrollTriggerFired = true;
         this.hasTriggerSequenceCompleted = true;
         this.isMenuMode = false;
+        this.isExploring = true;
+        this.isReturningFromExplore = false;
         this.hideButtonContainer();
         this.startCameraTransition(config.camera.panPosition, config.camera.panDuration);
-        document.getElementById('instructions').style.opacity = '1';
+        if (this.isMobile) {
+            this.showMobileExploreUI();
+        } else {
+            document.getElementById('instructions').style.opacity = '1';
+        }
         this.hasExplored = true;
         this.enteredAsLoggedIn = this.isAuthenticated;
         this.updateInstructionsText();
@@ -875,6 +1059,89 @@ class PowaiExperience {
             this.memoriesLoaded = true;
             this.loadMemoriesFromFirestore();
         }
+    }
+
+    // ─── Explore return flow ──────────────────────────────────────────────────
+
+    startModelLerp(targetY, duration) {
+        if (!this.model) return;
+        this.modelLerpAnimation = {
+            startTime: performance.now(),
+            duration,
+            fromY: this.model.position.y,
+            toY: targetY
+        };
+    }
+
+    returnFromExploreMode() {
+        if (!this.isExploring) return;
+        this.isExploring = false;
+        this.isReturningFromExplore = true;
+        this.isMenuMode = false;
+        this.hideButtonContainer();
+        // Hide all memory orbs and planes immediately
+        for (const memory of this.memories) {
+            memory.orb.material.opacity = 0;
+            memory.orb.visible = false;
+            memory.plane.material.opacity = 0;
+            memory.plane.visible = false;
+            memory.isNear = false;
+        }
+        this.hideMemoryPopup();
+        // Lerp model back down to initial (hidden) position
+        this.startModelLerp(config.model.initialPosition.y, config.model.returnDuration);
+        // Lerp camera position back to default
+        this.startCameraTransition(config.camera.initialPosition, config.camera.returnDuration);
+        // Lerp camera rotation (yaw + pitch) back to forward-facing
+        this.startCameraRotationReset(config.camera.returnDuration);
+        document.getElementById('instructions').style.opacity = '0';
+        if (this.isMobile) this.hideMobileExploreUI();
+    }
+
+    startCameraRotationReset(duration) {
+        this.cameraRotationReset = {
+            startTime: performance.now(),
+            duration,
+            fromYaw: this.controls.getObject().rotation.y,
+            fromPitch: this.camera.rotation.x
+        };
+    }
+
+    updateCameraRotationReset(timestamp) {
+        if (!this.cameraRotationReset || this.isLocked) return;
+
+        const progress = this.getTimedProgress(
+            timestamp,
+            this.cameraRotationReset.startTime,
+            this.cameraRotationReset.duration
+        );
+        const eased = this.easeInOutCubic(progress);
+
+        this.controls.getObject().rotation.y = THREE.MathUtils.lerp(
+            this.cameraRotationReset.fromYaw, 0, eased
+        );
+        this.camera.rotation.x = THREE.MathUtils.lerp(
+            this.cameraRotationReset.fromPitch, 0, eased
+        );
+
+        if (progress >= 1) {
+            this.controls.getObject().rotation.y = 0;
+            this.camera.rotation.x = 0;
+            this.cameraRotationReset = null;
+        }
+    }
+
+    enterMenuModeFromReturn() {
+        if (!this.isReturningFromExplore) return;
+        this.isReturningFromExplore = false;
+        this.isMenuMode = true;
+        this.isModelRotationStopped = false;
+        this.modelRotationReset = null;
+        // Lerp model back up to final position
+        this.startModelLerp(config.model.finalPosition.y, config.model.settleDuration);
+        // Camera is already back at initialPosition; show buttons immediately
+        this.showButtonContainer();
+        if (this.isMobile) this.hideMobileExploreUI();
     }
 
     setMenuMode(isVisible) {
@@ -991,6 +1258,24 @@ class PowaiExperience {
             return;
         }
 
+        // Lerp model position Y (explore return / re-enter menu)
+        if (this.modelLerpAnimation) {
+            const progress = this.getTimedProgress(
+                timestamp,
+                this.modelLerpAnimation.startTime,
+                this.modelLerpAnimation.duration
+            );
+            this.model.position.y = THREE.MathUtils.lerp(
+                this.modelLerpAnimation.fromY,
+                this.modelLerpAnimation.toY,
+                this.easeInOutCubic(progress)
+            );
+            if (progress >= 1) {
+                this.model.position.y = this.modelLerpAnimation.toY;
+                this.modelLerpAnimation = null;
+            }
+        }
+
         if (this.modelRotationReset) {
             const progress = this.getTimedProgress(
                 timestamp,
@@ -1017,19 +1302,20 @@ class PowaiExperience {
     }
 
     updateUnlockedScrollState(scrollDelta) {
-        if (this.isLocked || this.isAuthModalOpen || !this.hasExplored || !this.hasTriggerSequenceCompleted) {
+        if (this.isLocked || this.isAuthModalOpen) {
             return;
         }
 
-        if (scrollDelta < 0) {
-            document.getElementById('instructions').style.opacity = '0';
-            this.setMenuMode(false);
+        // Scroll up while actively exploring → begin return sequence
+        if (this.isExploring && scrollDelta < 0) {
+            this.returnFromExploreMode();
             return;
         }
 
-        if (scrollDelta > 0 && this.isNearBottomMenuZone()) {
-            document.getElementById('instructions').style.opacity = '0';
-            this.setMenuMode(true);
+        // Scroll down after having returned from explore → go back to menu (buttons + model)
+        if (this.isReturningFromExplore && scrollDelta > 0) {
+            this.enterMenuModeFromReturn();
+            return;
         }
     }
 
@@ -1041,7 +1327,14 @@ class PowaiExperience {
             this.autoScrollTargetY = 0;
             this.hasTriggerSequenceCompleted = false;
             this.cameraTransition = null;
+            this.cameraRotationReset = null;
             this.modelRotationReset = null;
+            this.modelLerpAnimation = null;
+            this.hasExplored = false;
+            this.isExploring = false;
+            this.isReturningFromExplore = false;
+            this.isModelRotationStopped = false;
+            if (this.isMobile) this.hideMobileExploreUI();
             this.applySequenceInitialState();
             this.closeAuthModal({ resetForm: true });
             document.getElementById('instructions').style.opacity = '0';
@@ -1136,6 +1429,11 @@ class PowaiExperience {
         // Pointer lock events
         document.addEventListener('pointerlockchange', () => this.onPointerLockChange());
         document.addEventListener('pointerlockerror', () => this.onPointerLockError());
+
+        // Mobile-specific setup
+        if (this.isMobile) {
+            this.initMobileControls();
+        }
     }
 
     onScroll() {
@@ -1357,7 +1655,10 @@ class PowaiExperience {
 
         if (event.code === 'Space') {
             event.preventDefault();
-            this.togglePointerLock();
+            // Spacebar only toggles pointer lock while in explore mode
+            if (this.isExploring) {
+                this.togglePointerLock();
+            }
         }
 
         if (event.code === 'KeyV' && this.enteredAsLoggedIn && this.hasExplored && !this.isAuthModalOpen) {
@@ -1394,9 +1695,7 @@ class PowaiExperience {
     }
 
     togglePointerLock() {
-        if (this.isAuthModalOpen) {
-            return;
-        }
+        if (this.isMobile || this.isAuthModalOpen) return;
 
         if (this.isLocked) {
             document.exitPointerLock();
@@ -1409,13 +1708,23 @@ class PowaiExperience {
         this.isLocked = (document.pointerLockElement === document.body);
         this.syncBodyUiState();
         if (this.isLocked) {
-            // Hide instructions when locked
             document.getElementById('instructions').style.opacity = '0';
             this.setMenuMode(false);
             window.scrollTo(0, this.scrollY);
+            if (this.reticle) this.reticle.visible = true;
         } else {
-            // Show instructions when unlocked
-            if (this.hasExplored) {
+            if (this.reticle) this.reticle.visible = false;
+            // Reset all memory visuals when unlocking
+            this.hideMemoryPopup();
+            for (const memory of this.memories) {
+                memory.plane.material.opacity = 0;
+                memory.plane.visible = false;
+                memory.orb.material.opacity = 1;
+                memory.orb.visible = true;
+                memory.isNear = false;
+            }
+            // Show hint menu only when actively in explore mode on desktop
+            if (!this.isMobile && this.isExploring) {
                 document.getElementById('instructions').style.opacity = '1';
             }
         }
@@ -1423,6 +1732,81 @@ class PowaiExperience {
 
     onPointerLockError() {
         console.error('Pointer lock failed');
+    }
+
+    // ─── Mobile controls ──────────────────────────────────────────────────────
+
+    checkOrientation() {
+        const popup = document.getElementById('portrait-popup');
+        if (!popup) return;
+        const isPortrait = window.innerHeight > window.innerWidth;
+        popup.classList.toggle('is-visible', isPortrait);
+    }
+
+    initMobileControls() {
+        // Portrait check now and on every orientation change
+        this.checkOrientation();
+        const onOrientationChange = () => setTimeout(() => this.checkOrientation(), 100);
+        window.addEventListener('orientationchange', onOrientationChange);
+        if (screen.orientation) {
+            screen.orientation.addEventListener('change', onOrientationChange);
+        }
+
+        // Joysticks
+        this.joystick1 = new JoystickController('stick1', 48, 8);
+        this.joystick2 = new JoystickController('stick2', 48, 8);
+
+        // Lock / Unlock button
+        document.getElementById('mobile-lock-btn').addEventListener('click', () => {
+            if (this.isLocked) this.mobileUnlock();
+            else this.mobileLock();
+        });
+
+        // Add Memory button — unlock controls first, then open dialog
+        document.getElementById('mobile-memory-btn').addEventListener('click', () => {
+            if (this.isLocked) this.mobileUnlock();
+            if (this.enteredAsLoggedIn) this.openMemoryDialog();
+        });
+    }
+
+    showMobileExploreUI() {
+        document.getElementById('mobile-controls').classList.add('is-visible');
+        const memBtn = document.getElementById('mobile-memory-btn');
+        if (memBtn) memBtn.hidden = !this.enteredAsLoggedIn;
+        // Desktop instruction box stays hidden on mobile
+        document.getElementById('instructions').style.opacity = '0';
+    }
+
+    hideMobileExploreUI() {
+        const controls = document.getElementById('mobile-controls');
+        if (controls) controls.classList.remove('is-visible');
+        if (this.isLocked) this.mobileUnlock();
+    }
+
+    mobileLock() {
+        this.isLocked = true;
+        this.syncBodyUiState();
+        if (this.reticle) this.reticle.visible = true;
+        document.getElementById('mobile-joysticks').classList.add('is-visible');
+        document.getElementById('mobile-lock-btn').textContent = 'Unlock Controls';
+        document.getElementById('instructions').style.opacity = '0';
+        window.scrollTo(0, this.scrollY);
+    }
+
+    mobileUnlock() {
+        this.isLocked = false;
+        this.syncBodyUiState();
+        if (this.reticle) this.reticle.visible = false;
+        document.getElementById('mobile-joysticks').classList.remove('is-visible');
+        document.getElementById('mobile-lock-btn').textContent = 'Lock Controls';
+        this.hideMemoryPopup();
+        for (const memory of this.memories) {
+            memory.plane.material.opacity = 0;
+            memory.plane.visible = false;
+            memory.orb.material.opacity = 1;
+            memory.orb.visible = true;
+            memory.isNear = false;
+        }
     }
 
     onWindowResize() {
@@ -1465,6 +1849,23 @@ class PowaiExperience {
             }
         }
 
+        // Mobile joystick movement (left stick = move, right stick = look)
+        if (this.isMobile && this.isLocked && this.joystick1 && this.joystick2) {
+            const moveDistance = config.controls.moveSpeed * delta;
+            const lookSens = config.controls.mobileLookSensitivity * delta;
+
+            if (this.joystick1.value.y !== 0) {
+                this.controls.moveForward(-this.joystick1.value.y * moveDistance);
+            }
+            if (this.joystick1.value.x !== 0) {
+                this.controls.moveRight(this.joystick1.value.x * moveDistance);
+            }
+
+            this.controls.getObject().rotation.y -= this.joystick2.value.x * lookSens;
+            this.camera.rotation.x -= this.joystick2.value.y * lookSens;
+            this.camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.camera.rotation.x));
+        }
+
         // Keep Y fixed for walking when locked
         if (this.isLocked) {
             this.controls.getObject().position.y = config.camera.panPosition.y;
@@ -1472,7 +1873,9 @@ class PowaiExperience {
 
         this.updateTriggeredSequence(timestamp);
         this.updateModelIdleAnimation(delta, timestamp);
-        this.updateMemoryProximity();
+        this.updateCameraRotationReset(timestamp);
+        this.updateMemoryProximity(delta);
+        this.updateOrbPulse(timestamp);
 
         this.renderer.render(this.scene, this.camera);
     }
