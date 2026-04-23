@@ -39,11 +39,19 @@
     position: fixed;
     inset: 0;
     z-index: 4;
-    pointer-events: none;
+    pointer-events: none; /* invisible to touches when hidden */
 }
 
 #mobile-controls.is-visible {
     display: block;
+    /*
+     * Must be 'auto': iOS Safari does not reliably forward touches to
+     * pointer-events:auto children when the parent is pointer-events:none.
+     * In explore mode the canvas needs no direct touch input (joysticks handle
+     * all movement; raycaster fires from camera centre), so covering it here
+     * is safe.
+     */
+    pointer-events: auto;
 }
 
 /* Joystick containers */
@@ -65,6 +73,8 @@
     user-select: none;
     -webkit-user-select: none;
     touch-action: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
 }
 
 #stick1Container { left: 4%; }
@@ -90,7 +100,13 @@
     left: 22.5%;
     object-fit: contain;
     opacity: 0.7;
-    pointer-events: none;
+    /* Must be auto — JoystickController attaches touchstart directly to these images */
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: pointer; /* iOS tap-event activation hint */
+    -webkit-tap-highlight-color: transparent;
 }
 
 /* Mobile action bar (lock button + memory button) */
@@ -100,10 +116,15 @@
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     pointer-events: auto;
+    white-space: nowrap;
+}
+
+#mobile-action-bar.is-hidden {
+    display: none;
 }
 
 #mobile-lock-btn,
@@ -154,6 +175,14 @@
         pointer-events: none;
     }
 
+    /* ── Hint box: top-left on mobile so it never overlaps the joysticks/buttons */
+    #instructions {
+        bottom: auto !important;
+        top: 12px;
+        left: 12px;
+        font-size: 12px;
+    }
+
     /* ── Button container: always on top and fully touchable ────────────── */
     #button-container {
         z-index: 100;
@@ -182,67 +211,82 @@
         justify-content: center;
     }
 
-    /* ── Auth modal: sized for mobile viewport + keyboard ────────────────── */
+    /* ── Auth modal ──────────────────────────────────────────────────────── */
     #auth-modal-backdrop {
-        align-items: flex-end;
-        padding-bottom: env(safe-area-inset-bottom, 0px);
+        touch-action: manipulation;
     }
 
     #auth-modal {
-        width: 100%;
-        max-height: 85dvh;
-        border-radius: 16px 16px 0 0;
+        width: min(400px, calc(100vw - 32px));
+        max-height: 80dvh;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
+        /* keep rounded corners for centred layout */
+        border-radius: 20px;
+        touch-action: manipulation;
     }
 
-    /* Prevent iOS zoom on input focus */
+    /* Prevent iOS auto-zoom on input focus (requires font-size >= 16px) */
     #auth-email,
-    #auth-password {
-        font-size: 16px;
-    }
-
-    #auth-submit-btn {
-        min-height: 48px;
+    #auth-password,
+    .auth-field input {
+        font-size: 16px !important;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
     }
 
+    #auth-submit-btn,
     #auth-modal-close {
-        touch-action: manipulation;
-        min-width: 44px;
         min-height: 44px;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        cursor: pointer;
+    }
+
+    /* "logging in for the first time?" — tiny text, needs big tap zone */
+    #auth-mode-toggle {
+        min-height: 44px;
+        padding: 10px 4px;   /* vertical padding fills the hit area around the small text */
+        font-size: 0.85rem;  /* slightly larger so it's easier to see and tap */
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        cursor: pointer;
     }
 
     /* ── Memory dialog ────────────────────────────────────────────────────── */
     #memory-dialog-backdrop {
-        align-items: flex-end;
-        padding-bottom: env(safe-area-inset-bottom, 0px);
+        touch-action: manipulation;
     }
 
     #memory-dialog {
-        width: 100%;
-        max-height: 85dvh;
-        border-radius: 16px 16px 0 0;
+        width: min(400px, calc(100vw - 32px));
+        max-height: 80dvh;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
+        border-radius: 20px;
+        touch-action: manipulation;
     }
 
-    #memory-description {
-        font-size: 16px; /* Prevent iOS zoom */
+    #memory-description,
+    #memory-image-label-text {
+        font-size: 16px !important; /* Prevent iOS zoom */
+        touch-action: manipulation;
     }
 
     #memory-submit-btn,
     #memory-dialog-close {
+        min-height: 44px;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
-        min-height: 48px;
+        cursor: pointer;
     }
 
     /* ── Memory popup (in-world text) ─────────────────────────────────────── */
     #memory-popup {
         font-size: 0.8rem;
-        max-width: 80vw;
-        bottom: 55%;
+        max-width: 60vw;
+        top: 12px;
+        right: 12px;
+        left: auto; /* override the base left:20px so right-alignment takes effect */
     }
 }

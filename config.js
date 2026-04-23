@@ -169,7 +169,8 @@ export const config = {
 
     // Instructions box settings
     instructions: {
-        text: "WASD to move<br>Mouse to look<br>Spacebar to lock/unlock controls",
+        text: "WASD to move<br>Mouse to look<br>Spacebar to lock/unlock controls <br>Go close to an orb and <br> place the cursor on it <br> to view a memory",
+        mobileText: "Left stick: move<br>Right stick: look<br><br>Go close to an orb and <br> place the cursor on it <br> to view a memory",
         position: { bottom: "10px", left: "10px" },
         backgroundColor: "rgba(0, 0, 0, 0.7)",
         color: "#ffffff",

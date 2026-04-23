@@ -6,7 +6,9 @@ import { config } from './config.js';
 class JoystickController {
     constructor(stickID, maxDistance, deadzone) {
         this.id = stickID;
+        // stick = the visual thumb image; container = the full hit area
         const stick = document.getElementById(stickID);
+        const container = document.getElementById(stickID + 'Container');
         this.dragStart = null;
         this.touchId = null;
         this.active = false;
@@ -18,29 +20,34 @@ class JoystickController {
             self.active = true;
             stick.style.transition = '0s';
             event.preventDefault();
-            if (event.changedTouches)
+            if (event.changedTouches) {
                 self.dragStart = { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY };
-            else
-                self.dragStart = { x: event.clientX, y: event.clientY };
-            if (event.changedTouches)
                 self.touchId = event.changedTouches[0].identifier;
+            } else {
+                self.dragStart = { x: event.clientX, y: event.clientY };
+            }
         }
 
         function handleMove(event) {
             if (!self.active) return;
-            let touchmoveId = null;
+            let clientX, clientY;
             if (event.changedTouches) {
+                let found = null;
                 for (let i = 0; i < event.changedTouches.length; i++) {
                     if (self.touchId === event.changedTouches[i].identifier) {
-                        touchmoveId = i;
-                        event.clientX = event.changedTouches[i].clientX;
-                        event.clientY = event.changedTouches[i].clientY;
+                        found = event.changedTouches[i];
+                        break;
                     }
                 }
-                if (touchmoveId === null) return;
+                if (!found) return;
+                clientX = found.clientX;
+                clientY = found.clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
             }
-            const xDiff = event.clientX - self.dragStart.x;
-            const yDiff = event.clientY - self.dragStart.y;
+            const xDiff = clientX - self.dragStart.x;
+            const yDiff = clientY - self.dragStart.y;
             const angle = Math.atan2(yDiff, xDiff);
             const distance = Math.min(maxDistance, Math.hypot(xDiff, yDiff));
             stick.style.transform = `translate3d(${distance * Math.cos(angle)}px, ${distance * Math.sin(angle)}px, 0px)`;
@@ -61,8 +68,9 @@ class JoystickController {
             self.active = false;
         }
 
-        stick.addEventListener('mousedown', handleDown);
-        stick.addEventListener('touchstart', handleDown, { passive: false });
+        // Attach touchstart/mousedown to the full container for a large, reliable hit area
+        container.addEventListener('mousedown', handleDown);
+        container.addEventListener('touchstart', handleDown, { passive: false });
         document.addEventListener('mousemove', handleMove, { passive: false });
         document.addEventListener('touchmove', handleMove, { passive: false });
         document.addEventListener('mouseup', handleUp);
@@ -273,7 +281,7 @@ class PowaiExperience {
                     config.model.scale.y,
                     config.model.scale.z
                 );
-                this.modelDefaultRotationY = this.model.rotation.y;
+                this.modelDefaultRotationY = this.model.rotation.y % (Math.PI * 2);
                 this.model.traverse((child) => {
                     if (child.isMesh) {
                         child.castShadow = true;
@@ -399,12 +407,14 @@ class PowaiExperience {
     showButtonContainer() {
         const buttonContainer = document.getElementById('button-container');
         buttonContainer.style.opacity = '1';
+        buttonContainer.style.pointerEvents = 'auto';
         buttonContainer.style.transform = `${config.buttons.container.position.transform} translateY(0px)`;
     }
 
     hideButtonContainer() {
         const buttonContainer = document.getElementById('button-container');
         buttonContainer.style.opacity = '0';
+        buttonContainer.style.pointerEvents = 'none';
         buttonContainer.style.transform =
             `${config.buttons.container.position.transform} translateY(${config.buttons.container.translateStartY}px)`;
     }
@@ -455,13 +465,21 @@ class PowaiExperience {
         onAuthStateChanged(this.firebaseAuth, (user) => {
             this.isAuthenticated = Boolean(user);
             this.updateInstructionsText();
+            // Keep the mobile Add Memory button in sync with live auth state
+            if (this.isMobile) {
+                const memBtn = document.getElementById('mobile-memory-btn');
+                if (memBtn) memBtn.hidden = !this.isAuthenticated;
+            }
         });
     }
 
     updateInstructionsText() {
-        const base = config.instructions.text;
-        const extra = this.enteredAsLoggedIn ? '<br>V to add a memory' : '';
-        document.getElementById('instructions').innerHTML = base + extra;
+        if (this.isMobile) {
+            document.getElementById('instructions').innerHTML = config.instructions.mobileText;
+        } else {
+            const extra = this.enteredAsLoggedIn ? '<br>V to add a memory' : '';
+            document.getElementById('instructions').innerHTML = config.instructions.text + extra;
+        }
     }
 
     isFirebaseConfigured() {
@@ -591,9 +609,20 @@ class PowaiExperience {
 
         this.setAuthPendingState(false);
 
-        // Restore button container if we're in the menu state
         if (this.isMenuMode) {
             this.showButtonContainer();
+
+            // If the user closed without completing login, reset to a clean menu state:
+            // camera returns to its default position and model resumes spinning.
+            if (!this.isAuthenticated) {
+                this.startCameraTransition(
+                    config.camera.initialPosition,
+                    config.camera.returnDuration
+                );
+                this.isModelRotationStopped = false;
+                this.modelRotationReset = null;
+                this.modelLerpAnimation = null;
+            }
         }
     }
 
@@ -690,10 +719,17 @@ class PowaiExperience {
         this.isMemoryDialogOpen = true;
         document.getElementById('memory-dialog-backdrop').classList.add('is-visible');
         document.getElementById('memory-dialog-backdrop').setAttribute('aria-hidden', 'false');
+        if (this.isMobile) {
+            // Hide the entire mobile-controls overlay so it doesn't sit on top of
+            // the dialog (mobile-controls is a body-level z-index:4 div — higher
+            // than the overlay stacking context that the dialog lives in).
+            const mobileControls = document.getElementById('mobile-controls');
+            if (mobileControls) mobileControls.classList.remove('is-visible');
+        }
         document.getElementById('memory-form').reset();
         document.getElementById('memory-image-preview').hidden = true;
         document.getElementById('memory-image-preview').src = '';
-        document.getElementById('memory-image-label-text').textContent = 'Choose a photo (optional)';
+        document.getElementById('memory-image-label-text').textContent = 'Choose a photo *';
         this.clearMemoryStatus();
         this.syncBodyUiState();
         window.requestAnimationFrame(() => {
@@ -705,10 +741,17 @@ class PowaiExperience {
         this.isMemoryDialogOpen = false;
         document.getElementById('memory-dialog-backdrop').classList.remove('is-visible');
         document.getElementById('memory-dialog-backdrop').setAttribute('aria-hidden', 'true');
+        if (this.isMobile) {
+            // Restore the mobile controls overlay if we're still in explore mode
+            if (this.isExploring) {
+                const mobileControls = document.getElementById('mobile-controls');
+                if (mobileControls) mobileControls.classList.add('is-visible');
+            }
+        }
         document.getElementById('memory-form').reset();
         document.getElementById('memory-image-preview').hidden = true;
         document.getElementById('memory-image-preview').src = '';
-        document.getElementById('memory-image-label-text').textContent = 'Choose a photo (optional)';
+        document.getElementById('memory-image-label-text').textContent = 'Choose a photo *';
         this.clearMemoryStatus();
         this.setMemorySubmitPending(false);
         this.syncBodyUiState();
@@ -747,6 +790,10 @@ class PowaiExperience {
         }
 
         const file = document.getElementById('memory-image').files[0] || null;
+        if (!file) {
+            this.setMemoryStatus('Please choose a photo.', 'error');
+            return;
+        }
 
         if (!this.firestoreDb) {
             this.setMemoryStatus('Firebase is not configured — cannot save memories.', 'error');
@@ -778,11 +825,16 @@ class PowaiExperience {
                 imageUrl = await getDownloadURL(sRef);
             }
 
+            // Derive display name from the signed-in email
+            const userEmail = this.firebaseAuth.currentUser.email || '';
+            const userName = this.extractDisplayName(userEmail);
+
             // Save to Firestore
             const docRef = await addDoc(
                 collection(this.firestoreDb, config.memories.firestoreCollection),
                 {
                     userId: this.firebaseAuth.currentUser.uid,
+                    userName,
                     description,
                     imageUrl,
                     position: spawnPos,
@@ -791,7 +843,7 @@ class PowaiExperience {
             );
 
             // Create in 3D scene
-            this.createMemoryObjects({ id: docRef.id, description, imageUrl, position: spawnPos });
+            this.createMemoryObjects({ id: docRef.id, description, imageUrl, position: spawnPos, userName });
 
             this.closeMemoryDialog();
         } catch (error) {
@@ -804,7 +856,7 @@ class PowaiExperience {
 
     // ─── Memory scene objects ─────────────────────────────────────────────────
 
-    createMemoryObjects({ id, description, imageUrl, position }) {
+    createMemoryObjects({ id, description, imageUrl, position, userName = 'Test User' }) {
         // Always use config orbHeight for Y — changing the config repositions all memories
         const pos = new THREE.Vector3(position.x, config.memories.orbHeight, position.z);
 
@@ -863,7 +915,7 @@ class PowaiExperience {
         plane.position.copy(pos);
         this.scene.add(plane);
 
-        this.memories.push({ id, description, imageUrl, position: pos, orb, plane, isNear: false });
+        this.memories.push({ id, description, imageUrl, userName, position: pos, orb, plane, isNear: false });
     }
 
     // ─── Proximity detection ──────────────────────────────────────────────────
@@ -916,7 +968,7 @@ class PowaiExperience {
         }
 
         if (activeMemory) {
-            this.showMemoryPopup(activeMemory.description);
+            this.showMemoryPopup(activeMemory.description, activeMemory.userName);
         } else {
             this.hideMemoryPopup();
         }
@@ -939,8 +991,31 @@ class PowaiExperience {
         }
     }
 
-    showMemoryPopup(description) {
+    // Derive "Firstname Lastname" from emails like aditya.de2024@bitsdesign.edu.in
+    extractDisplayName(email) {
+        if (!email) return '';
+        try {
+            const local = email.split('@')[0];           // "aditya.de2024"
+            const stripped = local.replace(/\d+$/, ''); // "aditya.de"
+            return stripped
+                .split('.')
+                .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+                .join(' ');                              // "Aditya De"
+        } catch {
+            return '';
+        }
+    }
+
+    showMemoryPopup(description, userName) {
         document.getElementById('memory-popup-text').textContent = description;
+        const nameEl = document.getElementById('memory-popup-name');
+        if (userName) {
+            nameEl.textContent = userName;
+            nameEl.classList.add('has-name');
+        } else {
+            nameEl.textContent = '';
+            nameEl.classList.remove('has-name');
+        }
         document.getElementById('memory-popup').classList.add('is-visible');
     }
 
@@ -963,7 +1038,8 @@ class PowaiExperience {
                         id: doc.id,
                         description: data.description || '',
                         imageUrl: data.imageUrl || null,
-                        position: data.position
+                        position: data.position,
+                        userName: data.userName || 'Test User'
                     });
                 }
             });
@@ -1021,6 +1097,7 @@ class PowaiExperience {
     }
 
     enterExperience() {
+        console.log('[Explore] user logged in:', this.isAuthenticated, '| uid:', this.firebaseAuth?.currentUser?.uid ?? 'none');
         this.triggerSequenceStartTime = null;
         this.modelLerpAnimation = null;
         this.cameraRotationReset = null;
@@ -1044,16 +1121,15 @@ class PowaiExperience {
         this.isMenuMode = false;
         this.isExploring = true;
         this.isReturningFromExplore = false;
+        this.enteredAsLoggedIn = this.isAuthenticated; // must be set before showMobileExploreUI reads it
         this.hideButtonContainer();
         this.startCameraTransition(config.camera.panPosition, config.camera.panDuration);
         if (this.isMobile) {
             this.showMobileExploreUI();
-        } else {
-            document.getElementById('instructions').style.opacity = '1';
         }
         this.hasExplored = true;
-        this.enteredAsLoggedIn = this.isAuthenticated;
         this.updateInstructionsText();
+        document.getElementById('instructions').style.opacity = '1';
 
         if (!this.memoriesLoaded) {
             this.memoriesLoaded = true;
@@ -1297,7 +1373,7 @@ class PowaiExperience {
         }
 
         if (!this.isModelRotationStopped) {
-            this.model.rotation.y += config.model.rotationSpeed * delta;
+            this.model.rotation.y = (this.model.rotation.y + config.model.rotationSpeed * delta) % (Math.PI * 2);
         }
     }
 
@@ -1460,7 +1536,19 @@ class PowaiExperience {
     }
 
     onTouchMove(event) {
-        if (this.isLocked || this.isAuthModalOpen) {
+        if (this.isLocked) {
+            event.preventDefault();
+            return;
+        }
+        // When a modal is open, allow touchmove inside the scrollable modal box
+        // but still block it on the background to prevent page scroll-behind.
+        if (this.isAuthModalOpen || this.isMemoryDialogOpen) {
+            const authModal = document.getElementById('auth-modal');
+            const memDialog = document.getElementById('memory-dialog');
+            if ((authModal && authModal.contains(event.target)) ||
+                (memDialog && memDialog.contains(event.target))) {
+                return; // let the browser scroll inside the modal naturally
+            }
             event.preventDefault();
         }
     }
@@ -1708,7 +1796,6 @@ class PowaiExperience {
         this.isLocked = (document.pointerLockElement === document.body);
         this.syncBodyUiState();
         if (this.isLocked) {
-            document.getElementById('instructions').style.opacity = '0';
             this.setMenuMode(false);
             window.scrollTo(0, this.scrollY);
             if (this.reticle) this.reticle.visible = true;
@@ -1723,8 +1810,8 @@ class PowaiExperience {
                 memory.orb.visible = true;
                 memory.isNear = false;
             }
-            // Show hint menu only when actively in explore mode on desktop
-            if (!this.isMobile && this.isExploring) {
+            // Keep hint visible whenever we're still in explore mode
+            if (this.isExploring) {
                 document.getElementById('instructions').style.opacity = '1';
             }
         }
@@ -1773,8 +1860,6 @@ class PowaiExperience {
         document.getElementById('mobile-controls').classList.add('is-visible');
         const memBtn = document.getElementById('mobile-memory-btn');
         if (memBtn) memBtn.hidden = !this.enteredAsLoggedIn;
-        // Desktop instruction box stays hidden on mobile
-        document.getElementById('instructions').style.opacity = '0';
     }
 
     hideMobileExploreUI() {
@@ -1789,7 +1874,6 @@ class PowaiExperience {
         if (this.reticle) this.reticle.visible = true;
         document.getElementById('mobile-joysticks').classList.add('is-visible');
         document.getElementById('mobile-lock-btn').textContent = 'Unlock Controls';
-        document.getElementById('instructions').style.opacity = '0';
         window.scrollTo(0, this.scrollY);
     }
 
@@ -1819,7 +1903,9 @@ class PowaiExperience {
 
     animate(timestamp = performance.now()) {
         requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
-        const delta = this.clock.getDelta();
+        // Cap delta so that a long pause (e.g. iOS file picker) doesn't produce
+        // a massive jump when requestAnimationFrame resumes.
+        const delta = Math.min(this.clock.getDelta(), 0.1);
 
         // Handle camera panning
         if (this.isPanning) {

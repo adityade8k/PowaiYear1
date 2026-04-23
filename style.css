@@ -6,6 +6,11 @@
     box-sizing: border-box;
 }
 
+/* Enforce the HTML hidden attribute — developer display rules can override the UA stylesheet */
+[hidden] {
+    display: none !important;
+}
+
 body {
     font-family: "dm-mono", sans-serif;
     font-weight: 500;
@@ -128,8 +133,8 @@ body.is-modal-open {
     gap: 12px;
     z-index: 3;
     opacity: 0;
+    pointer-events: none; /* enabled by JS when visible */
     will-change: transform, opacity;
-    pointer-events: auto;
 }
 
 button {
@@ -138,9 +143,9 @@ button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #ffffff;
+    border: 1px solid rgb(255, 255, 255);
     border-radius: 999px;
-    background-color: #000000;
+    background-color: rgba(0, 0, 0, 0.7);
     color: #ffffff;
     font-size: 1rem;
     cursor: pointer;
@@ -149,7 +154,7 @@ button {
 
 button:hover {
     border-color: #000000;
-    background-color: #ffffff;
+    background-color: rgba(255, 255,255, 0.7);
     color: #000000;
 }
 
@@ -164,20 +169,16 @@ button:hover {
     position: absolute;
     inset: 0;
     z-index: 2;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     background: rgba(255, 255, 255, 0.22);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s ease;
 }
 
 #auth-modal-backdrop.is-visible {
-    opacity: 1;
-    pointer-events: auto;
+    display: flex;
 }
 
 #auth-modal {
@@ -316,16 +317,12 @@ button:hover {
     border-radius: 14px;
     font-size: 0.88rem;
     line-height: 1.5;
-    opacity: 0;
     pointer-events: none;
-    transform: translateY(-6px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-    will-change: opacity, transform;
+    display: none;
 }
 
 #memory-popup.is-visible {
-    opacity: 1;
-    transform: translateY(0);
+    display: block;
 }
 
 #memory-popup-text {
@@ -333,25 +330,32 @@ button:hover {
     white-space: pre-wrap;
 }
 
+#memory-popup-name {
+    margin: 6px 0 0;
+    font-size: 0.75rem;
+    opacity: 0.65;
+    display: none; /* hidden unless a name is available */
+}
+
+#memory-popup-name.has-name {
+    display: block;
+}
+
 /* ─── Memory dialog ─────────────────────────────────────────────────────── */
 #memory-dialog-backdrop {
     position: absolute;
     inset: 0;
     z-index: 4;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     background: rgba(255, 255, 255, 0.22);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s ease;
 }
 
 #memory-dialog-backdrop.is-visible {
-    opacity: 1;
-    pointer-events: auto;
+    display: flex;
 }
 
 #memory-dialog {
