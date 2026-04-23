@@ -1595,12 +1595,6 @@ class PowaiExperience {
             event.preventDefault();
             return;
         }
-        // Block page scroll while exploring on mobile (locked OR unlocked) —
-        // the exit button is the only escape route.
-        if (this.isMobile && this.isExploring) {
-            event.preventDefault();
-            return;
-        }
         // When a modal is open, allow touchmove inside the scrollable modal box
         // but still block it on the background to prevent page scroll-behind.
         if (this.isAuthModalOpen || this.isMemoryDialogOpen) {
@@ -1611,6 +1605,13 @@ class PowaiExperience {
                 return; // let the browser scroll inside the modal naturally
             }
             event.preventDefault();
+            return;
+        }
+        // Block page scroll while exploring on mobile (locked OR unlocked) —
+        // the exit button is the only escape route when no modal is open.
+        if (this.isMobile && this.isExploring) {
+            event.preventDefault();
+            return;
         }
     }
 
