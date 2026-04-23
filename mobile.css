@@ -301,3 +301,27 @@
         left: auto; /* override the base left:20px so right-alignment takes effect */
     }
 }
+
+/* ── Mobile exit button (top-right, unlocked state only) ─────────────────── */
+#mobile-exit-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.72);
+    color: #ffffff;
+    border: 1.5px solid rgba(255, 255, 255, 0.35);
+    font-size: 22px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    touch-action: manipulation;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    z-index: 10;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}

@@ -812,6 +812,8 @@ class PowaiExperience {
             this.pendingMemory = { file, description };
             this.closeMemoryDialog();
             this.updateMobilePendingUI();
+            // Lock controls so the user is immediately back in FPS mode
+            if (this.isExploring) this.mobileLock();
             return;
         }
 
@@ -1593,6 +1595,12 @@ class PowaiExperience {
             event.preventDefault();
             return;
         }
+        // Block page scroll while exploring on mobile (locked OR unlocked) —
+        // the exit button is the only escape route.
+        if (this.isMobile && this.isExploring) {
+            event.preventDefault();
+            return;
+        }
         // When a modal is open, allow touchmove inside the scrollable modal box
         // but still block it on the background to prevent page scroll-behind.
         if (this.isAuthModalOpen || this.isMemoryDialogOpen) {
@@ -1902,6 +1910,12 @@ class PowaiExperience {
             else this.mobileLock();
         });
 
+        // Exit button — returns to section 1 when controls are unlocked in explore mode
+        document.getElementById('mobile-exit-btn').addEventListener('click', () => {
+            this.returnFromExploreMode();
+            window.scrollTo(0, 0);
+        });
+
         // Memory button — behaviour depends on whether a pending memory exists
         document.getElementById('mobile-memory-btn').addEventListener('click', () => {
             if (this.pendingMemory) {
@@ -1919,6 +1933,9 @@ class PowaiExperience {
         document.getElementById('mobile-controls').classList.add('is-visible');
         const memBtn = document.getElementById('mobile-memory-btn');
         if (memBtn) memBtn.hidden = !this.enteredAsLoggedIn;
+        // Exit button visible whenever controls are unlocked in explore mode
+        const exitBtn = document.getElementById('mobile-exit-btn');
+        if (exitBtn) exitBtn.hidden = false;
     }
 
     hideMobileExploreUI() {
@@ -1938,6 +1955,9 @@ class PowaiExperience {
         if (this.reticle) this.reticle.visible = true;
         document.getElementById('mobile-joysticks').classList.add('is-visible');
         document.getElementById('mobile-lock-btn').textContent = 'Unlock Controls';
+        // Hide exit button while controls are locked (scroll is already blocked)
+        const exitBtn = document.getElementById('mobile-exit-btn');
+        if (exitBtn) exitBtn.hidden = true;
         window.scrollTo(0, this.scrollY);
     }
 
@@ -1947,6 +1967,9 @@ class PowaiExperience {
         if (this.reticle) this.reticle.visible = false;
         document.getElementById('mobile-joysticks').classList.remove('is-visible');
         document.getElementById('mobile-lock-btn').textContent = 'Lock Controls';
+        // Show exit button so user can leave explore mode
+        const exitBtn = document.getElementById('mobile-exit-btn');
+        if (exitBtn) exitBtn.hidden = false;
         this.hideMemoryPopup();
         for (const memory of this.memories) {
             memory.plane.material.opacity = 0;
