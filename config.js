@@ -121,7 +121,7 @@ export const config = {
         },
         mobile: {
             // Individual button size on mobile (side-by-side layout)
-            width: "2000px",
+            width: "200px",
             padding: "12px 16px",
             fontSize: "0.85rem"
         },
