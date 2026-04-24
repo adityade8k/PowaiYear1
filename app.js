@@ -737,9 +737,12 @@ class PowaiExperience {
         document.getElementById('memory-submit-btn').textContent = this.isMobile ? 'Save Memory' : 'Place Memory';
         this.clearMemoryStatus();
         this.syncBodyUiState();
-        window.requestAnimationFrame(() => {
-            document.getElementById('memory-description').focus();
-        });
+        // Only auto-focus on desktop — on mobile this fires the virtual keyboard immediately
+        if (!this.isMobile) {
+            window.requestAnimationFrame(() => {
+                document.getElementById('memory-description').focus();
+            });
+        }
     }
 
     closeMemoryDialog() {
@@ -811,7 +814,16 @@ class PowaiExperience {
         // Step 1: collect data, close the modal, show the preview thumbnail.
         // The orb is placed later when the user taps "Place Memory".
         if (this.isMobile) {
-            this.pendingMemory = { file, description };
+            // iOS Safari can invalidate a File reference after form.reset() is called
+            // inside closeMemoryDialog. Clone to a stable File from an ArrayBuffer first.
+            let stableFile = file;
+            try {
+                const buffer = await file.arrayBuffer();
+                stableFile = new File([buffer], file.name, { type: file.type });
+            } catch (_) {
+                // fallback: keep original reference
+            }
+            this.pendingMemory = { file: stableFile, description };
             this.closeMemoryDialog();
             this.updateMobilePendingUI();
             // Lock controls so the user is immediately back in FPS mode
