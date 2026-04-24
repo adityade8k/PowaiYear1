@@ -345,22 +345,32 @@ class PowaiExperience {
 
         // Button container
         const buttonContainer = document.getElementById('button-container');
-        buttonContainer.style.bottom = config.buttons.container.position.bottom;
-        buttonContainer.style.left = config.buttons.container.position.left;
-        buttonContainer.style.transform = config.buttons.container.position.transform;
-        buttonContainer.style.gap = config.buttons.container.gap;
+        const btnContCfg = (this.isMobile && config.buttons.container.mobile)
+            ? config.buttons.container.mobile
+            : config.buttons.container;
+        buttonContainer.style.bottom = btnContCfg.position.bottom;
+        buttonContainer.style.left = btnContCfg.position.left;
+        buttonContainer.style.transform = btnContCfg.position.transform;
+        buttonContainer.style.gap = btnContCfg.gap || config.buttons.container.gap;
+        // Side-by-side on mobile, stacked on desktop
+        buttonContainer.style.flexDirection = this.isMobile ? 'row' : 'column';
 
         // Explore button
         const exploreBtn = document.getElementById('explore-btn');
         exploreBtn.textContent = config.buttons.explore.text;
-        exploreBtn.style.width = config.buttons.shared.width;
-        exploreBtn.style.padding = config.buttons.shared.padding;
+        const btnSizeCfg = (this.isMobile && config.buttons.mobile)
+            ? config.buttons.mobile
+            : config.buttons.shared;
+        exploreBtn.style.width = btnSizeCfg.width;
+        exploreBtn.style.padding = btnSizeCfg.padding;
+        if (btnSizeCfg.fontSize) exploreBtn.style.fontSize = btnSizeCfg.fontSize;
 
         // Login button
         const loginBtn = document.getElementById('login-btn');
         loginBtn.textContent = config.buttons.login.text;
-        loginBtn.style.width = config.buttons.shared.width;
-        loginBtn.style.padding = config.buttons.shared.padding;
+        loginBtn.style.width = btnSizeCfg.width;
+        loginBtn.style.padding = btnSizeCfg.padding;
+        if (btnSizeCfg.fontSize) loginBtn.style.fontSize = btnSizeCfg.fontSize;
 
         // Instructions
         const instructions = document.getElementById('instructions');
@@ -409,17 +419,27 @@ class PowaiExperience {
 
     showButtonContainer() {
         const buttonContainer = document.getElementById('button-container');
+        const baseTransform = this._btnBaseTransform();
         buttonContainer.style.opacity = '1';
         buttonContainer.style.pointerEvents = 'auto';
-        buttonContainer.style.transform = `${config.buttons.container.position.transform} translateY(0px)`;
+        buttonContainer.style.transform = `${baseTransform} translateY(0px)`;
     }
 
     hideButtonContainer() {
         const buttonContainer = document.getElementById('button-container');
+        const baseTransform = this._btnBaseTransform();
         buttonContainer.style.opacity = '0';
         buttonContainer.style.pointerEvents = 'none';
         buttonContainer.style.transform =
-            `${config.buttons.container.position.transform} translateY(${config.buttons.container.translateStartY}px)`;
+            `${baseTransform} translateY(${config.buttons.container.translateStartY}px)`;
+    }
+
+    // Returns the base CSS transform for the button container for the current platform.
+    _btnBaseTransform() {
+        const cfg = (this.isMobile && config.buttons.container.mobile)
+            ? config.buttons.container.mobile
+            : config.buttons.container;
+        return cfg.position.transform;
     }
 
     applySequenceInitialState() {
@@ -1725,7 +1745,7 @@ class PowaiExperience {
             config.buttons.container.translateStartY * (1 - this.easeOutCubic(buttonProgress));
         buttonContainer.style.opacity = `${buttonProgress}`;
         buttonContainer.style.transform =
-            `${config.buttons.container.position.transform} translateY(${buttonTranslateY}px)`;
+            `${this._btnBaseTransform()} translateY(${buttonTranslateY}px)`;
 
         if (buttonProgress >= 1) {
             this.hasTriggerSequenceCompleted = true;

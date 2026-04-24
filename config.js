@@ -108,11 +108,22 @@ export const config = {
             translateStartY: 64,
             gap: "12px",
             revealDelayAfterModel: 120,
-            revealDuration: 900
+            revealDuration: 900,
+            mobile: {
+                // Position of the button group on mobile — edit bottom/left/transform freely
+                position: { bottom: "12%", left: "50%", transform: "translateX(-50%)" },
+                gap: "10px"
+            }
         },
         shared: {
             width: "260px",
             padding: "14px 24px"
+        },
+        mobile: {
+            // Individual button size on mobile (side-by-side layout)
+            width: "150px",
+            padding: "12px 16px",
+            fontSize: "0.85rem"
         },
         explore: {
             text: "Explore"
