@@ -17,7 +17,7 @@ export const config = {
         near: 0.1,
         far: 1000,
         initialPosition: { x: 0, y: 5, z: 10 },
-        panPosition: { x: -2, y: 5, z: 0 }, // Position after explore button press
+        panPosition: { x: 9.5, y: 5, z: -13 }, // Position after explore button press
         panDuration: 2000, // ms
         returnDuration: 1200
     },
